@@ -3,9 +3,7 @@ package main
 import (
     "fmt"
     "log"
-
     "github.com/miekg/dns"
-
     "github.com/xitongsys/parquet-go/ParquetFile"
     "github.com/xitongsys/parquet-go/ParquetWriter" 
     // "github.com/xitongsys/parquet-go/parquet" 
