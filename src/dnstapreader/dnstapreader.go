@@ -5,6 +5,7 @@ import (
   "fmt"
   "github.com/dnstap/golang-dnstap"
   "github.com/golang/protobuf/proto"
+  "../joiner"
 )
 
 func main() {
@@ -15,7 +16,8 @@ func main() {
 
   go WriteToPacketChannel(raw, packets)
 
-  go PrintType(packets)
+  //go PrintType(packets)
+  go joiner.Execute(packets)
 
   var filename = "../../data/lako.capture.tap"
   i, err = dnstap.NewFrameStreamInputFromFilename(filename)
@@ -30,9 +32,15 @@ func main() {
   	i.Wait()
     close(raw)
   }
+
+fmt.Printf("Size of cache: %d " , joiner.CacheSize())
+
 }
 
-func WriteToPacketChannel(rawdata <-chan []byte, packetdata chan *dnstap.Message) {
+func WriteToPacketChannel(rawdata <-chan []byte, packetdata chan<- *dnstap.Message) {
+  defer func() {
+    close(packetdata)
+  }()
   for {
 		select {
 		case b, ok := <-rawdata:
