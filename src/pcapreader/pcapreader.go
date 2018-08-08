@@ -23,8 +23,30 @@ func main() {
       // for _, layer := range packet.Layers() {
       //     fmt.Println("- ", layer.LayerType())
       // }
+      if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+        fmt.Println("TCP layer detected.")
+        tcp, _ := tcpLayer.(*layers.TCP)
+
+        // TCP layer variables:
+        // SrcPort, DstPort, Seq, Ack, DataOffset, Window, Checksum, Urgent
+        // Bool flags: FIN, SYN, RST, PSH, ACK, URG, ECE, CWR, NS
+        fmt.Printf("From port %d to %d\n", tcp.SrcPort, tcp.DstPort)
+        fmt.Println("Sequence number: ", tcp.Seq)
+        fmt.Println()
+      }
       if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
         // Get actual DNS data from this layer
+        if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+          fmt.Println("TCP layer detected.")
+          tcp, _ := tcpLayer.(*layers.TCP)
+
+          // TCP layer variables:
+          // SrcPort, DstPort, Seq, Ack, DataOffset, Window, Checksum, Urgent
+          // Bool flags: FIN, SYN, RST, PSH, ACK, URG, ECE, CWR, NS
+          fmt.Printf("From port %d to %d\n", tcp.SrcPort, tcp.DstPort)
+          fmt.Println("Sequence number: ", tcp.Seq)
+          fmt.Println()
+        }
         dns, _ := dnsLayer.(*layers.DNS)
         if dns.QR {
           fmt.Println("This packet is a response.")
