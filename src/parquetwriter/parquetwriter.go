@@ -1,12 +1,12 @@
 package main
 
 import (
-    "fmt"
+    // "fmt"
     "log"
     "github.com/miekg/dns"
     "github.com/xitongsys/parquet-go/ParquetFile"
-    "github.com/xitongsys/parquet-go/ParquetWriter" 
-    // "github.com/xitongsys/parquet-go/parquet" 
+    "github.com/xitongsys/parquet-go/ParquetWriter"
+    "github.com/xitongsys/parquet-go/parquet"
 )
 
 type DNS_query_response struct {
@@ -14,103 +14,80 @@ type DNS_query_response struct {
     response dns.Msg
 }
 
-var query_response_buffer []DNS_query_response 
-
 //  See schema at 
 //  https://github.com/SIDN/entrada/blob/master/pcap-to-parquet/src/main/resources/dns-query.avsc
-// var dns_schema string = `{
-//   "type": "record",
-//   "name": "dnsdata",
-//   "namespace": "nl.sidn.idnp.data.dns",
-//   "doc": "DNS query / response",
-//   "fields": [
-//     { "name": "id", "type": "int" },
-//     { "name": "unixtime", "type": "long" },
-//     { "name": "time", "type": "long" },
-//     { "name": "qname", "type": ["null","string"], "default": null},
-//     { "name": "domainname", "type": ["null","string"], "default": null},
-//     { "name": "len", "type": ["null","int"], "default": null },
-//     { "name": "frag", "type": ["null","int"], "default": null},
-//     { "name": "ttl", "type": ["null","int"], "default": null },
-//     { "name": "ipv", "type": "int" },
-//     { "name": "prot", "type": "int" },
-//     { "name": "src", "type": "string" },
-//     { "name": "srcp", "type": ["null","int"], "default": null},
-//     { "name": "dst", "type": "string" },
-//     { "name": "dstp", "type": "int"},
-//     { "name": "udp_sum", "type": ["null","int"], "default": null},
-//     { "name": "dns_len", "type": ["null","int"], "default": null},
-//     { "name": "aa", "type": ["null","boolean"], "default": null},
-//     { "name": "tc","type": ["null","boolean"], "default": null},
-//     { "name": "rd", "type": ["null","boolean"], "default": null},
-//     { "name": "ra", "type": ["null","boolean"], "default": null},
-//     { "name": "z", "type": ["null","boolean"], "default": null},
-//     { "name": "ad", "type": ["null","boolean"], "default": null},
-//     { "name": "cd", "type": ["null","boolean"], "default": null},
-//     { "name": "ancount", "type": ["null","int"], "default": null},
-//     { "name": "arcount", "type": ["null","int"], "default": null},
-//     { "name": "nscount", "type": ["null","int"], "default": null},
-//     { "name": "qdcount", "type": "int"},
-//     { "name": "opcode", "type": "int"},
-//     { "name": "rcode", "type": "int"},
-//     { "name": "qtype", "type": ["null","int"], "default": null},
-//     { "name": "qclass", "type": ["null","int"], "default": null},
-//     { "name": "country", "type": ["null","string"], "default": null},
-//     { "name": "asn", "type": ["null","string"], "default": null},
-//     { "name": "edns_udp", "type": ["null","int"], "default": null},
-//     { "name": "edns_version", "type": ["null","int"], "default": null},
-//     { "name": "edns_do", "type": ["null","boolean"], "default": null},
-//     { "name": "edns_ping", "type": ["null","boolean"], "default": null},
-//     { "name": "edns_nsid", "type": ["null","string"], "default": null},
-//     { "name": "edns_dnssec_dau", "type":  ["null","string"], "default": null},
-//     { "name": "edns_dnssec_dhu", "type":  ["null","string"], "default": null},  
-//     { "name": "edns_dnssec_n3u", "type":  ["null","string"], "default": null}, 
-//     { "name": "edns_client_subnet", "type":  ["null","string"], "default": null}, 
-//     { "name": "edns_other", "type":  ["null","string"], "default": null},
-//     { "name": "edns_client_subnet_asn", "type":  ["null","string"], "default": null}, 
-//     { "name": "edns_client_subnet_country", "type":  ["null","string"], "default": null},
-//     { "name": "labels", "type": "int" },
-//     { "name": "res_len", "type": "int","default": 0 },
-//     { "name": "svr", "type": "string" },
-//     { "name": "time_micro", "type": "long" },
-//     { "name": "resp_frag", "type": ["null","int"], "default": null},
-//     { "name": "proc_time", "type": ["null","int"], "default": null },
-//     { "name": "is_google", "type": "boolean", "default": false},
-//     { "name": "is_opendns", "type": "boolean", "default": false},
-//     { "name": "dns_res_len", "type": ["null","int"], "default": null},
-//     { "name": "server_location", "type": ["null","string"], "default": null},
-//     { "name": "edns_padding", "type": "int", "default": -1},
-//     { "name": "pcap_file", "type": ["null","string"], "default": null},
-//     { "name": "edns_keytag_count", "type": ["null","int"], "default": null},
-//     { "name": "edns_keytag_list", "type": ["null","string"], "default": null},
-//     { "name": "q_tc","type": ["null","boolean"], "default": null},
-//     { "name": "q_ra", "type": ["null","boolean"], "default": null},
-//     { "name": "q_ad", "type": ["null","boolean"], "default": null},
-//     { "name": "q_rcode", "type": ["null","int"], "default": null}
-//   ]
-// }`
+type Record struct {
+    Id              int32       `parquet:"name=id, type=INT32"`
+    Unixtime        int64       `parquet:"name=unixtime, type=INT64"`
+    Time            int64       `parquet:"name=time, type=INT64"`
+    Qname           string      `parquet:"name=qname, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Domainname      string      `parquet:"name=domainname, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Len             int32       `parquet:"name=len, type=INT32"`
+    Frag            int32       `parquet:"name=frag, type=INT32"`
+    Ttl             int32       `parquet:"name=ttl, type=INT32"`
+    Ipv             int32       `parquet:"name=ipv, type=INT32"`
+    Prot            int32       `parquet:"name=prot, type=INT32"`
+    Src             string      `parquet:"name=src, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Srcp            int32       `parquet:"name=srcp, type=INT32"`
+    Dst             string      `parquet:"name=dst, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Dstp            int32       `parquet:"name=dstp, type=INT32"`
+    Udp_sum         int32       `parquet:"name=udp_sum, type=INT32"`
+    Dns_len         int32       `parquet:"name=dns_len, type=INT32"`
+    Aa              bool        `parquet:"name=aa, type=BOOLEAN"`
+    Tc              bool        `parquet:"name=tc, type=BOOLEAN"`
+    Rd              bool        `parquet:"name=rd, type=BOOLEAN"`
+    Ra              bool        `parquet:"name=ra, type=BOOLEAN"`
+    Z               bool        `parquet:"name=z, type=BOOLEAN"`
+    Ad              bool        `parquet:"name=ad, type=BOOLEAN"`
+    Cd              bool        `parquet:"name=cd, type=BOOLEAN"`
+    Ancount         int32       `parquet:"name=ancount, type=INT32"`
+    Arcount         int32       `parquet:"name=arcount, type=INT32"`
+    Nscount         int32       `parquet:"name=nscount, type=INT32"`
+    Qdcount         int32       `parquet:"name=qdcount, type=INT32"`
+    Rcode           int32       `parquet:"name=rcode, type=INT32"`
+    Qtype           int32       `parquet:"name=qtype, type=INT32"`
+    Qclass          int32       `parquet:"name=qclass, type=INT32"`
+    Country         string      `parquet:"name=country, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Asn             string      `parquet:"name=asn, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Opcode          int32       `parquet:"name=opcode, type=INT32"`
+    Edns_udp        int32       `parquet:"name=edns_udp, type=INT32"`
+    Edns_version    int32       `parquet:"name=edns_version, type=INT32"`
+    Edns_do         bool        `parquet:"name=edns_do, type=BOOLEAN"`
+    Edns_ping       bool        `parquet:"name=edns_ping, type=BOOLEAN"`
+    Edns_nsid       string      `parquet:"name=edns_nsid, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_dnssec_dau     string  `parquet:"name=edns_dnssec_dau, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_dnssec_dhu     string  `parquet:"name=edns_dnssec_dhu, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_dnssec_n3u     string  `parquet:"name=edns_dnssec_n3u, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_client_subnet  string  `parquet:"name=edns_client_subnet, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_other      string      `parquet:"name=edns_other, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_client_subnet_asn      string  `parquet:"name=edns_client_subnet_asn, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_client_subnet_country  string  `parquet:"name=edns_client_subnet_country, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Labels          int32       `parquet:"name=labels, type=INT32"`
+    Res_len         int32       `parquet:"name=res_len, type=INT32"`
+    Svr             string      `parquet:"name=svr, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Time_micro      int64       `parquet:"name=time_micro, type=INT64"`
+    Resp_frag       int32       `parquet:"name=resp_frag, type=INT32"`
+    Proc_time       int32       `parquet:"name=proc_time, type=INT32"`
+    Is_google       bool        `parquet:"name=is_google, type=BOOLEAN"`
+    Is_opendns      bool        `parquet:"name=is_opendns, type=BOOLEAN"`
+    Dns_res_len     int32       `parquet:"name=dns_res_len, type=INT32"`
+    Server_location string      `parquet:"name=server_location, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_padding    int32       `parquet:"name=edns_padding, type=INT32"`
+    Pcap_file       string      `parquet:"name=pcap_file, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Edns_keytag_count   int32   `parquet:"name=edns_keytag_count, type=INT32"`
+    Edns_keytag_list    string  `parquet:"name=edns_keytag_list, type=UTF8, encoding=PLAIN_DICTIONARY"`
+    Q_tc            bool        `parquet:"name=q_tc, type=BOOLEAN"`
+    Q_ra            bool        `parquet:"name=q_ra, type=BOOLEAN"`
+    Q_ad            bool        `parquet:"name=q_ad, type=BOOLEAN"`
+    Q_rcode         int32       `parquet:"name=q_rcode, type=INT32"`
+}
 
-var dns_schema string = `{
-  "Tag": "name=parquet-go-root",
-  "Fields":[
-    {"Tag":"name=id, type=INT32"},
-    {"Tag":"name=unixtime, type=INT64"},
-    {"Tag":"name=qname, type=UTF8"},
-    {"Tag":"name=domainname, type=UTF8"}
-  ]
-}`
+var query_response_buffer []DNS_query_response 
 
 
 func add_DNS_query_response(query_response DNS_query_response) {
 
     query_response_buffer = append(query_response_buffer, query_response)
-
-    // fmt.Println(len(query_response_buffer))
-    // fmt.Println(query_response_buffer)
-
-    // if len(query_response_buffer) == 2 {
-    //     write_to_parquet()
-    // }
 
 }
 
@@ -125,30 +102,25 @@ func write_to_parquet() {
         return
     }
     
-    pw, err := ParquetWriter.NewJSONWriter(dns_schema, fw, 1)
+    pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 1)
     if err != nil {
-        log.Println("Can't create json writer", err)
+        log.Println("Can't create parquet writer", err)
         return
     }
 
-    // pw.RowGroupSize = 128 * 1024 * 1024 //128M
-    // pw.CompressionType = parquet.CompressionCodec_SNAPPY
+    pw.RowGroupSize = 128 * 1024 * 1024 //128M
+    pw.CompressionType = parquet.CompressionCodec_SNAPPY
 
-    rec := `{
-        "id": 123456,
-        "unixtime": 1533647257,
-        "qname": "%s",
-        "domainname": "%s"
-    }
-    `
 
     for i := 0; i < len(query_response_buffer); i++ {
          
-        rec = fmt.Sprintf(rec, query_response_buffer[i].query.Question[0].Name, 
-                                    query_response_buffer[i].query.Question[0].Name)
 
+        rec := Record{
+                Domainname:      query_response_buffer[i].query.Question[0].Name,
+                Qname:           query_response_buffer[i].query.Question[0].Name,
+                }
 
-        // fmt.Println(i)
+        log.Println(rec)
 
         if err = pw.Write(rec); err != nil {
             log.Println("Write error", err)
@@ -157,10 +129,11 @@ func write_to_parquet() {
     }
 
     // log.Println(pw.Objs)
-    // log.Println(pw.ObjSize)
+    log.Println(pw.ObjSize)
 
     if err = pw.WriteStop(); err != nil {
         log.Println("WriteStop error", err)
+        return
     }
     log.Println("Write Finished")
     fw.Close()
