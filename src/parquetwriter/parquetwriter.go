@@ -1,13 +1,17 @@
-package main
+package parquetwriter
 
 import (
-    // "fmt"
+    "fmt"
     "log"
+    "time"
+
     "github.com/miekg/dns"
+    
     "github.com/xitongsys/parquet-go/ParquetFile"
     "github.com/xitongsys/parquet-go/ParquetWriter"
     "github.com/xitongsys/parquet-go/parquet"
 )
+
 
 type DNS_query_response struct {
     query dns.Msg
@@ -82,27 +86,44 @@ type Record struct {
     Q_rcode         int32       `parquet:"name=q_rcode, type=INT32"`
 }
 
+// Maximum number of packets in buffer
+// If max_buffer_size is exceeded, a parquet file is written
+var max_buffer_size = 3000
+
+// Maximum number of seconds passed since the last parquet file is written
+// max_parquet_write_interval_s has passed, then parquet file is written even if max_buffer_size is not exceeded
+var max_parquet_write_interval_s int64 = 2
+
+var parquet_last_written = time.Now().Unix()
+
 var query_response_buffer []DNS_query_response 
 
 
-func add_DNS_query_response(query_response DNS_query_response) {
+func Add_DNS_query_response(query_response DNS_query_response) {
 
     query_response_buffer = append(query_response_buffer, query_response)
+
+    if len(query_response_buffer) > max_buffer_size || time.Now().Unix() - parquet_last_written > max_parquet_write_interval_s {
+        parquet_last_written = time.Now().Unix()
+        Write_to_parquet()
+        query_response_buffer = query_response_buffer[:0]
+
+    }
 
 }
 
 
-func write_to_parquet() {
+func Write_to_parquet() {
 
-    var err error
+    parquet_file_name := fmt.Sprintf("%d_testing.parquet", time.Now().Unix())
 
-    fw, err := ParquetFile.NewLocalFileWriter("test.parquet")
+    fw, err := ParquetFile.NewLocalFileWriter(parquet_file_name)
     if err != nil {
         log.Println("Can't create file", err)
         return
     }
     
-    pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 1)
+    pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 4)
     if err != nil {
         log.Println("Can't create parquet writer", err)
         return
@@ -110,7 +131,6 @@ func write_to_parquet() {
 
     pw.RowGroupSize = 128 * 1024 * 1024 //128M
     pw.CompressionType = parquet.CompressionCodec_SNAPPY
-
 
     for i := 0; i < len(query_response_buffer); i++ {
          
@@ -120,7 +140,7 @@ func write_to_parquet() {
                 Qname:           query_response_buffer[i].query.Question[0].Name,
                 }
 
-        log.Println(rec)
+        // log.Println(rec)
 
         if err = pw.Write(rec); err != nil {
             log.Println("Write error", err)
@@ -129,7 +149,7 @@ func write_to_parquet() {
     }
 
     // log.Println(pw.Objs)
-    log.Println(pw.ObjSize)
+    // log.Println(pw.ObjSize)
 
     if err = pw.WriteStop(); err != nil {
         log.Println("WriteStop error", err)
@@ -141,28 +161,4 @@ func write_to_parquet() {
 }
 
 
-func main() {
 
-    query := new(dns.Msg)
-    response := new(dns.Msg)
-
-    query.SetQuestion(dns.Fqdn("www.example.com."), dns.TypeAAAA)
-    response.SetQuestion(dns.Fqdn("www.example.com."), dns.TypeAAAA)
-
-    add_DNS_query_response(DNS_query_response{query: *query, response: *response})
-
-    for i := 0; i < 100; i++ {
-
-        query = new(dns.Msg)
-        response = new(dns.Msg)
-
-        query.SetQuestion(dns.Fqdn("switch.ch."), dns.TypeNS)
-        response.SetQuestion(dns.Fqdn("switch.ch."), dns.TypeNS)
-
-        add_DNS_query_response(DNS_query_response{query: *query, response: *response})
-
-    }
-
-    write_to_parquet()
-
-}
