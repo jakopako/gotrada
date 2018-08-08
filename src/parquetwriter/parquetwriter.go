@@ -92,7 +92,7 @@ var query_response_buffer []DNS_query_response
 
 var dns_schema string = `{
   "Tag": "name=parquet-go-root",
-  "Fields": [
+  "Fields":[
     {"Tag":"name=id, type=INT32"},
     {"Tag":"name=unixtime, type=INT64"},
     {"Tag":"name=qname, type=UTF8"},
@@ -108,9 +108,9 @@ func add_DNS_query_response(query_response DNS_query_response) {
     // fmt.Println(len(query_response_buffer))
     // fmt.Println(query_response_buffer)
 
-    if len(query_response_buffer) == 2 {
-        write_to_parquet()
-    }
+    // if len(query_response_buffer) == 2 {
+    //     write_to_parquet()
+    // }
 
 }
 
@@ -121,42 +121,43 @@ func write_to_parquet() {
 
     fw, err := ParquetFile.NewLocalFileWriter("test.parquet")
     if err != nil {
-        
         log.Println("Can't create file", err)
         return
-
     }
     
-    pw, err := ParquetWriter.NewJSONWriter(dns_schema, fw, 4)
+    pw, err := ParquetWriter.NewJSONWriter(dns_schema, fw, 1)
     if err != nil {
-    
         log.Println("Can't create json writer", err)
         return
-
     }
 
     // pw.RowGroupSize = 128 * 1024 * 1024 //128M
     // pw.CompressionType = parquet.CompressionCodec_SNAPPY
 
-    for i := 0; i < cap(query_response_buffer); i++ {
-        
-        rec := `
-            "id": 123456,
-            "unixtime": 1533647257,
-            "qname": "%s",
-            "domainname": "%s"
-        `
+    rec := `{
+        "id": 123456,
+        "unixtime": 1533647257,
+        "qname": "%s",
+        "domainname": "%s"
+    }
+    `
 
+    for i := 0; i < len(query_response_buffer); i++ {
+         
         rec = fmt.Sprintf(rec, query_response_buffer[i].query.Question[0].Name, 
                                     query_response_buffer[i].query.Question[0].Name)
 
 
+        // fmt.Println(i)
+
         if err = pw.Write(rec); err != nil {
             log.Println("Write error", err)
         }
-
-        log.Println(pw.Objs)
+        
     }
+
+    // log.Println(pw.Objs)
+    // log.Println(pw.ObjSize)
 
     if err = pw.WriteStop(); err != nil {
         log.Println("WriteStop error", err)
@@ -177,12 +178,18 @@ func main() {
 
     add_DNS_query_response(DNS_query_response{query: *query, response: *response})
 
-    query = new(dns.Msg)
-    response = new(dns.Msg)
+    for i := 0; i < 100; i++ {
 
-    query.SetQuestion(dns.Fqdn("switch.ch."), dns.TypeNS)
-    response.SetQuestion(dns.Fqdn("switch.ch."), dns.TypeNS)
+        query = new(dns.Msg)
+        response = new(dns.Msg)
 
-    add_DNS_query_response(DNS_query_response{query: *query, response: *response})
+        query.SetQuestion(dns.Fqdn("switch.ch."), dns.TypeNS)
+        response.SetQuestion(dns.Fqdn("switch.ch."), dns.TypeNS)
+
+        add_DNS_query_response(DNS_query_response{query: *query, response: *response})
+
+    }
+
+    write_to_parquet()
 
 }
