@@ -6,13 +6,13 @@ import (
     "time"
 
     "model"
-    
+
     "github.com/xitongsys/parquet-go/ParquetFile"
     "github.com/xitongsys/parquet-go/ParquetWriter"
     "github.com/xitongsys/parquet-go/parquet"
 )
 
-//  See schema at 
+//  See schema at
 //  https://github.com/SIDN/entrada/blob/master/pcap-to-parquet/src/main/resources/dns-query.avsc
 type Record struct {
     Id              int32       `parquet:"name=id, type=INT32"`
@@ -90,7 +90,7 @@ var max_parquet_write_interval_s int64 = 2
 
 var parquet_last_written = time.Now().Unix()
 
-var query_response_buffer []model.Data 
+var query_response_buffer []model.Data
 
 
 func Add_Data(query_response model.Data) {
@@ -116,7 +116,7 @@ func Write_to_parquet() {
         log.Println("Can't create file", err)
         return
     }
-    
+
     pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 4)
     if err != nil {
         log.Println("Can't create parquet writer", err)
@@ -127,11 +127,11 @@ func Write_to_parquet() {
     pw.CompressionType = parquet.CompressionCodec_SNAPPY
 
     for i := 0; i < len(query_response_buffer); i++ {
-         
+
 
         rec := Record{
-                Domainname:      query_response_buffer[i].Req.Question[0].Name,
-                Qname:           query_response_buffer[i].Req.Question[0].Name,
+                Domainname:      query_response_buffer[i].DnsReq.Question[0].Name,
+                Qname:           query_response_buffer[i].DnsReq.Question[0].Name,
                 }
 
         // log.Println(rec)
@@ -139,7 +139,7 @@ func Write_to_parquet() {
         if err = pw.Write(rec); err != nil {
             log.Println("Write error", err)
         }
-        
+
     }
 
     // log.Println(pw.Objs)
@@ -153,6 +153,3 @@ func Write_to_parquet() {
     fw.Close()
 
 }
-
-
-
