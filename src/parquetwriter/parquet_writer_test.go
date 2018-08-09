@@ -3,7 +3,7 @@ package parquetwriter
 import (
 	"testing"
 	"fmt"
-	"time"
+	// "time"
 
 	"model"
 
@@ -19,7 +19,15 @@ func TestParquetWriter(t *testing.T) {
     query := new(dns.Msg)
     response := new(dns.Msg)
 
-    for i := 0; i < 100; i++ {
+    // Make channel 
+    query_response_channel := make(chan model.Data)
+
+    // Start routine to add data
+    // Routine will run until channel is closed
+    go Add_Data(query_response_channel)
+
+    // Create 1M "packets"
+    for i := 0; i < 1000000; i++ {
 
         query = new(dns.Msg)
         response = new(dns.Msg)
@@ -29,11 +37,12 @@ func TestParquetWriter(t *testing.T) {
         query.SetQuestion(dns.Fqdn(fqdn), dns.TypeNS)
         response.SetQuestion(dns.Fqdn(fqdn), dns.TypeNS)
 
-        Add_Data(model.Data{Req: *query, Res: *response})
+        // Add new data to the channel
+        query_response_channel <- model.Data{Req: *query, Res: *response}
 
-        if i % 10 == 0 {
-        	time.Sleep(1 * time.Second)
-        }
+        // if i % 10 == 0 {
+        // 	time.Sleep(1 * time.Second)
+        // }
 
     }
 
