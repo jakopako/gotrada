@@ -5,6 +5,7 @@ import (
     "log"
     "time"
     "strings"
+    "net"
 
     "../model"
 
@@ -141,6 +142,12 @@ func Write_to_parquet(parquet_writer_channel chan *model.Data) {
             for i := 0; i < len(query_response_buffer); i++ {
               qname := strings.ToLower(query_response_buffer[i].DnsReq.Question[0].Name)
               dname := ExtractDomainname(qname)
+              var dst, src net.IP
+              var dstp, srcp uint32
+              dst = query_response_buffer[i].MessageReq.ResponseAddress
+              src = query_response_buffer[i].MessageReq.QueryAddress
+              dstp = *query_response_buffer[i].MessageReq.ResponsePort
+              srcp = *query_response_buffer[i].MessageReq.QueryPort
               //log.Printf("Domainname: %s Qname: %s", dname, qname)
 
 
@@ -148,10 +155,10 @@ func Write_to_parquet(parquet_writer_channel chan *model.Data) {
                 rec := Record{
                         Domainname:     dname,
                         Qname:          qname,
-                        Dst:            string(query_response_buffer[i].MessageReq.ResponseAddress),
-                        Dstp:           int32(*query_response_buffer[i].MessageReq.ResponsePort),
-                        Src:            string(query_response_buffer[i].MessageReq.QueryAddress),
-                        Srcp:           int32(*query_response_buffer[i].MessageReq.QueryPort),
+                        Dst:            dst.String(),
+                        Dstp:           int32(dstp),
+                        Src:            src.String(),
+                        Srcp:           int32(srcp),
                         }
 
                 // log.Println(rec)
