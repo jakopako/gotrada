@@ -1,1 +1,2 @@
 src/pcapreader/pcapreader
+*.parquet
