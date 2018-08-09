@@ -4,6 +4,7 @@ import (
     "fmt"
     "log"
     "time"
+    "strings"
 
     "../model"
 
@@ -138,18 +139,20 @@ func Write_to_parquet(parquet_writer_channel chan *model.Data) {
             pw.CompressionType = parquet.CompressionCodec_SNAPPY
 
             for i := 0; i < len(query_response_buffer); i++ {
+              qname := strings.ToLower(query_response_buffer[i].DnsReq.Question[0].Name)
+              dname := ExtractDomainname(qname)
+              //log.Printf("Domainname: %s Qname: %s", dname, qname)
+              rec := Record{
+                      Domainname:      dname,
+                      Qname:           qname,
+                      Id:              int32(query_response_buffer[i].DnsReq.Id),
+                      }
 
+              // log.Println(rec)
 
-                rec := Record{
-                        Domainname:      query_response_buffer[i].DnsReq.Question[0].Name,
-                        Qname:           query_response_buffer[i].DnsReq.Question[0].Name,
-                        }
-
-                // log.Println(rec)
-
-                if err = pw.Write(rec); err != nil {
-                    log.Println("Write error", err)
-                }
+              if err = pw.Write(rec); err != nil {
+                  log.Println("Write error", err)
+              }
 
             }
 
@@ -170,4 +173,13 @@ func Write_to_parquet(parquet_writer_channel chan *model.Data) {
 
     }
 
+}
+
+func ExtractDomainname(qname string) string {
+  labels := strings.Split(qname, ".")
+  if len(labels) < 3 {
+    return labels[0]
+  } else {
+    return strings.Join(labels[len(labels)-3:], ".")
+  }
 }
