@@ -143,9 +143,11 @@ func Write_to_parquet(parquet_writer_channel chan *model.Data) {
               dname := ExtractDomainname(qname)
               //log.Printf("Domainname: %s Qname: %s", dname, qname)
 
+
+                // TODO: Populate record and fix encoding
                 rec := Record{
-                        Domainname:     string(query_response_buffer[i].MessageReq.QueryMessage),
-                        Qname:          string(query_response_buffer[i].MessageReq.QueryMessage),
+                        Domainname:     dname,
+                        Qname:          qname,
                         Dst:            string(query_response_buffer[i].MessageReq.ResponseAddress),
                         Dstp:           int32(*query_response_buffer[i].MessageReq.ResponsePort),
                         Src:            string(query_response_buffer[i].MessageReq.QueryAddress),
