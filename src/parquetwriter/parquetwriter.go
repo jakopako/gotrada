@@ -5,14 +5,14 @@ import (
     "log"
     "time"
 
-    "model"
-    
+    "../model"
+
     "github.com/xitongsys/parquet-go/ParquetFile"
     "github.com/xitongsys/parquet-go/ParquetWriter"
     "github.com/xitongsys/parquet-go/parquet"
 )
 
-//  See schema at 
+//  See schema at
 //  https://github.com/SIDN/entrada/blob/master/pcap-to-parquet/src/main/resources/dns-query.avsc
 type Record struct {
     Id              int32       `parquet:"name=id, type=INT32"`
@@ -82,7 +82,7 @@ type Record struct {
 
 // Maximum number of packets in buffer
 // If max_buffer_size is exceeded, a parquet file is written
-var max_buffer_size = 100000
+var max_buffer_size = 1000
 
 // Maximum number of seconds passed since the last parquet file is written
 // max_parquet_write_interval_s has passed, then parquet file is written even if max_buffer_size is not exceeded
@@ -90,9 +90,9 @@ var max_parquet_write_interval_s int64 = 2
 
 var parquet_last_written = time.Now().Unix()
 
-func Add_Data(query_response_channel chan model.Data) {
+func Add_Data(query_response_channel chan *model.Data) {
 
-    parquet_writer_channel := make(chan model.Data)
+    parquet_writer_channel := make(chan *model.Data)
 
     go Write_to_parquet(parquet_writer_channel)
 
@@ -101,15 +101,15 @@ func Add_Data(query_response_channel chan model.Data) {
 
         parquet_writer_channel <- Data
 
-        
+
     }
 
 }
 
 
-func Write_to_parquet(parquet_writer_channel chan model.Data) {
+func Write_to_parquet(parquet_writer_channel chan *model.Data) {
 
-    var query_response_buffer []model.Data 
+    var query_response_buffer []*model.Data
 
     for Data := range parquet_writer_channel {
 
@@ -117,7 +117,7 @@ func Write_to_parquet(parquet_writer_channel chan model.Data) {
 
         // Write out parquet if buffer size is exceeded or if certain amount of time has passed
         if len(query_response_buffer) > max_buffer_size || time.Now().Unix() - parquet_last_written > max_parquet_write_interval_s {
-            
+
             parquet_last_written = time.Now().Unix()
 
             parquet_file_name := fmt.Sprintf("%d_testing.parquet", time.Now().Unix())
@@ -127,7 +127,7 @@ func Write_to_parquet(parquet_writer_channel chan model.Data) {
                 log.Println("Can't create file", err)
                 return
             }
-            
+
             pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 4)
             if err != nil {
                 log.Println("Can't create parquet writer", err)
@@ -138,11 +138,11 @@ func Write_to_parquet(parquet_writer_channel chan model.Data) {
             pw.CompressionType = parquet.CompressionCodec_SNAPPY
 
             for i := 0; i < len(query_response_buffer); i++ {
-                 
+
 
                 rec := Record{
-                        Domainname:      query_response_buffer[i].Req.Question[0].Name,
-                        Qname:           query_response_buffer[i].Req.Question[0].Name,
+                        Domainname:      query_response_buffer[i].DnsReq.Question[0].Name,
+                        Qname:           query_response_buffer[i].DnsReq.Question[0].Name,
                         }
 
                 // log.Println(rec)
@@ -150,7 +150,7 @@ func Write_to_parquet(parquet_writer_channel chan model.Data) {
                 if err = pw.Write(rec); err != nil {
                     log.Println("Write error", err)
                 }
-                
+
             }
 
             // log.Println(pw.Objs)
@@ -171,6 +171,3 @@ func Write_to_parquet(parquet_writer_channel chan model.Data) {
     }
 
 }
-
-
-

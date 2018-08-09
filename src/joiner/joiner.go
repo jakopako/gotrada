@@ -6,6 +6,8 @@ import(
   "strings"
   "github.com/dnstap/golang-dnstap"
   "github.com/miekg/dns"
+  "../model"
+  "../parquetwriter"
 )
 
 type PacketKey struct {
@@ -15,13 +17,25 @@ type PacketKey struct {
   srcp uint32
 }
 
-var cache = make(map[PacketKey]*dnstap.Message)
+type PacketValue struct {
+  tap *dnstap.Message
+  dns *dns.Msg
+}
+
+var cache = make(map[PacketKey]*PacketValue)
+  // Make channel
+var query_response_channel = make(chan *model.Data)
 
 func stats(){
   fmt.Println("Size of cache: " + string(len(cache)))
 }
 
 func Execute(packetdata <-chan *dnstap.Message) {
+
+
+  // Start routine to add data
+  // Routine will run until channel is closed
+  go parquetwriter.Add_Data(query_response_channel)
 
   for {
 		select {
@@ -61,7 +75,7 @@ func handleQuery(msg *dnstap.Message) {
 
   if err == nil {
     key := packetKeyFor(true, msg, dns)
-    cache[*key] = msg
+    cache[*key] = &PacketValue{msg, dns}
   }
 }
 
@@ -72,12 +86,15 @@ func handleResponse(response *dnstap.Message) {
 
   if err == nil {
     key := packetKeyFor(true, response, dns)
-    request := cache[*key]
-    if value != nil{
+    requestValue := cache[*key]
+    if requestValue != nil{
       //delete req from Cache
       delete(cache, *key)
       //send to parquet writer channel
 
+      d := &model.Data{requestValue.tap, response, requestValue.dns, dns}
+      //fmt.Printf("data to send: %s", *d)
+      query_response_channel <- d
     }
   }
 }
