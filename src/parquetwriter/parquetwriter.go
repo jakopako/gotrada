@@ -82,11 +82,11 @@ type Record struct {
 
 // Maximum number of packets in buffer
 // If max_buffer_size is exceeded, a parquet file is written
-var max_buffer_size = 1000
+var max_buffer_size = 30000
 
 // Maximum number of seconds passed since the last parquet file is written
 // max_parquet_write_interval_s has passed, then parquet file is written even if max_buffer_size is not exceeded
-var max_parquet_write_interval_s int64 = 2
+var max_parquet_write_interval_s int64 = 60*5
 
 var parquet_last_written = time.Now().Unix()
 
@@ -141,8 +141,12 @@ func Write_to_parquet(parquet_writer_channel chan *model.Data) {
 
 
                 rec := Record{
-                        Domainname:      query_response_buffer[i].DnsReq.Question[0].Name,
-                        Qname:           query_response_buffer[i].DnsReq.Question[0].Name,
+                        Domainname:     string(query_response_buffer[i].MessageReq.QueryMessage),
+                        Qname:          string(query_response_buffer[i].MessageReq.QueryMessage),
+                        Dst:            string(query_response_buffer[i].MessageReq.ResponseAddress),
+                        Dstp:           int32(*query_response_buffer[i].MessageReq.ResponsePort),
+                        Src:            string(query_response_buffer[i].MessageReq.QueryAddress),
+                        Srcp:           int32(*query_response_buffer[i].MessageReq.QueryPort),
                         }
 
                 // log.Println(rec)
