@@ -5,7 +5,7 @@ import (
     "log"
     "time"
 
-    "model"
+    "../model"
 
     "github.com/xitongsys/parquet-go/ParquetFile"
     "github.com/xitongsys/parquet-go/ParquetWriter"
@@ -82,7 +82,7 @@ type Record struct {
 
 // Maximum number of packets in buffer
 // If max_buffer_size is exceeded, a parquet file is written
-var max_buffer_size = 3000
+var max_buffer_size = 1000
 
 // Maximum number of seconds passed since the last parquet file is written
 // max_parquet_write_interval_s has passed, then parquet file is written even if max_buffer_size is not exceeded
@@ -90,66 +90,84 @@ var max_parquet_write_interval_s int64 = 2
 
 var parquet_last_written = time.Now().Unix()
 
-var query_response_buffer []model.Data
+func Add_Data(query_response_channel chan *model.Data) {
 
+    parquet_writer_channel := make(chan *model.Data)
 
-func Add_Data(query_response model.Data) {
+    go Write_to_parquet(parquet_writer_channel)
 
-    query_response_buffer = append(query_response_buffer, query_response)
+    // Run as long channel is not closed
+    for Data := range query_response_channel {
 
-    if len(query_response_buffer) > max_buffer_size || time.Now().Unix() - parquet_last_written > max_parquet_write_interval_s {
-        parquet_last_written = time.Now().Unix()
-        Write_to_parquet()
-        query_response_buffer = query_response_buffer[:0]
+        parquet_writer_channel <- Data
+
 
     }
 
 }
 
 
-func Write_to_parquet() {
+func Write_to_parquet(parquet_writer_channel chan *model.Data) {
 
-    parquet_file_name := fmt.Sprintf("%d_testing.parquet", time.Now().Unix())
+    var query_response_buffer []*model.Data
 
-    fw, err := ParquetFile.NewLocalFileWriter(parquet_file_name)
-    if err != nil {
-        log.Println("Can't create file", err)
-        return
-    }
+    for Data := range parquet_writer_channel {
 
-    pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 4)
-    if err != nil {
-        log.Println("Can't create parquet writer", err)
-        return
-    }
+        query_response_buffer = append(query_response_buffer, Data)
 
-    pw.RowGroupSize = 128 * 1024 * 1024 //128M
-    pw.CompressionType = parquet.CompressionCodec_SNAPPY
+        // Write out parquet if buffer size is exceeded or if certain amount of time has passed
+        if len(query_response_buffer) > max_buffer_size || time.Now().Unix() - parquet_last_written > max_parquet_write_interval_s {
 
-    for i := 0; i < len(query_response_buffer); i++ {
+            parquet_last_written = time.Now().Unix()
+
+            parquet_file_name := fmt.Sprintf("%d_testing.parquet", time.Now().Unix())
+
+            fw, err := ParquetFile.NewLocalFileWriter(parquet_file_name)
+            if err != nil {
+                log.Println("Can't create file", err)
+                return
+            }
+
+            pw, err := ParquetWriter.NewParquetWriter(fw, new(Record), 4)
+            if err != nil {
+                log.Println("Can't create parquet writer", err)
+                return
+            }
+
+            pw.RowGroupSize = 128 * 1024 * 1024 //128M
+            pw.CompressionType = parquet.CompressionCodec_SNAPPY
+
+            for i := 0; i < len(query_response_buffer); i++ {
 
 
-        rec := Record{
-                Domainname:      query_response_buffer[i].DnsReq.Question[0].Name,
-                Qname:           query_response_buffer[i].DnsReq.Question[0].Name,
+                rec := Record{
+                        Domainname:      query_response_buffer[i].DnsReq.Question[0].Name,
+                        Qname:           query_response_buffer[i].DnsReq.Question[0].Name,
+                        }
+
+                // log.Println(rec)
+
+                if err = pw.Write(rec); err != nil {
+                    log.Println("Write error", err)
                 }
 
-        // log.Println(rec)
+            }
 
-        if err = pw.Write(rec); err != nil {
-            log.Println("Write error", err)
+            // log.Println(pw.Objs)
+            // log.Println(pw.ObjSize)
+
+            if err = pw.WriteStop(); err != nil {
+                log.Println("WriteStop error", err)
+                return
+            }
+            log.Println("Write Finished")
+            fw.Close()
+
+            query_response_buffer = query_response_buffer[:0]
+
+
         }
 
     }
-
-    // log.Println(pw.Objs)
-    // log.Println(pw.ObjSize)
-
-    if err = pw.WriteStop(); err != nil {
-        log.Println("WriteStop error", err)
-        return
-    }
-    log.Println("Write Finished")
-    fw.Close()
 
 }

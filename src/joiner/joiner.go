@@ -6,6 +6,8 @@ import(
   "strings"
   "github.com/dnstap/golang-dnstap"
   "github.com/miekg/dns"
+  "../model"
+  "../parquetwriter"
 )
 
 type PacketKey struct {
@@ -15,17 +17,25 @@ type PacketKey struct {
   srcp uint32
 }
 
-var cache = make(map[PacketKey]*dnstap.Message)
+type PacketValue struct {
+  tap *dnstap.Message
+  dns *dns.Msg
+}
+
+var cache = make(map[PacketKey]*PacketValue)
+  // Make channel
+var query_response_channel = make(chan *model.Data)
 
 func stats(){
   fmt.Println("Size of cache: " + string(len(cache)))
 }
 
 func Execute(packetdata <-chan *dnstap.Message) {
-  defer func(){
-    //close(packetdata)
-    fmt.Println("Size of cache: " + string(len(cache)))
-  }()
+
+
+  // Start routine to add data
+  // Routine will run until channel is closed
+  go parquetwriter.Add_Data(query_response_channel)
 
   for {
 		select {
@@ -59,30 +69,51 @@ func Execute(packetdata <-chan *dnstap.Message) {
 
 
 func handleQuery(msg *dnstap.Message) {
-//  fmt.Println("Handle query")
-
   var err error
   dns := new(dns.Msg)
   err = dns.Unpack(msg.QueryMessage)
 
   if err == nil {
-    //fmt.Println("unpacked query")
-
-    //fmt.Println(dns.Question[0].Name)
-      var ip net.IP
-      ip = msg.QueryAddress
-    key := PacketKey{dns.Id, strings.ToLower(dns.Question[0].Name), ip.String(), *msg.QueryPort}
-
-    //fmt.Println(key)
-
-    cache[key] = msg
+    key := packetKeyFor(true, msg, dns)
+    cache[*key] = &PacketValue{msg, dns}
   }
 }
 
-func handleResponse(msg *dnstap.Message) {
-  //fmt.Println("Handle response")
+func handleResponse(response *dnstap.Message) {
+  var err error
+  dns := new(dns.Msg)
+  err = dns.Unpack(response.ResponseMessage)
+
+  if err == nil {
+    key := packetKeyFor(true, response, dns)
+    requestValue := cache[*key]
+    if requestValue != nil{
+      //delete req from Cache
+      delete(cache, *key)
+      //send to parquet writer channel
+
+      d := &model.Data{requestValue.tap, response, requestValue.dns, dns}
+      //fmt.Printf("data to send: %s", *d)
+      query_response_channel <- d
+    }
+  }
 }
 
+func packetKeyFor(req bool, msg *dnstap.Message, dns *dns.Msg) *PacketKey{
+  var ip net.IP
+  var port uint32
+
+  if req {
+    ip = msg.QueryAddress
+    port = *msg.QueryPort
+  }else{
+    ip = msg.ResponseAddress
+    port = *msg.ResponsePort
+  }
+  //fmt.Printf("ip: %d and port: %d\n", ip, port)
+  key := &PacketKey{dns.Id, strings.ToLower(dns.Question[0].Name), ip.String(), port}
+  return key
+}
 
 func CacheSize() int {
   return len(cache)

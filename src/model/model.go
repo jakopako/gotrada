@@ -6,8 +6,8 @@ import(
 )
 
 type Data struct {
-  MessagaReq dnstap.Message
-  MessageRes dnstap.Message
-  DnsReq dns.Msg
-  DnsRes dns.Msg
+  MessageReq *dnstap.Message
+  MessageRes *dnstap.Message
+  DnsReq *dns.Msg
+  DnsRes *dns.Msg
 }
