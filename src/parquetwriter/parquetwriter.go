@@ -5,18 +5,12 @@ import (
     "log"
     "time"
 
-    "github.com/miekg/dns"
+    "model"
     
     "github.com/xitongsys/parquet-go/ParquetFile"
     "github.com/xitongsys/parquet-go/ParquetWriter"
     "github.com/xitongsys/parquet-go/parquet"
 )
-
-
-type DNS_query_response struct {
-    query dns.Msg
-    response dns.Msg
-}
 
 //  See schema at 
 //  https://github.com/SIDN/entrada/blob/master/pcap-to-parquet/src/main/resources/dns-query.avsc
@@ -96,10 +90,10 @@ var max_parquet_write_interval_s int64 = 2
 
 var parquet_last_written = time.Now().Unix()
 
-var query_response_buffer []DNS_query_response 
+var query_response_buffer []model.Data 
 
 
-func Add_DNS_query_response(query_response DNS_query_response) {
+func Add_Data(query_response model.Data) {
 
     query_response_buffer = append(query_response_buffer, query_response)
 
@@ -136,8 +130,8 @@ func Write_to_parquet() {
          
 
         rec := Record{
-                Domainname:      query_response_buffer[i].query.Question[0].Name,
-                Qname:           query_response_buffer[i].query.Question[0].Name,
+                Domainname:      query_response_buffer[i].Req.Question[0].Name,
+                Qname:           query_response_buffer[i].Req.Question[0].Name,
                 }
 
         // log.Println(rec)

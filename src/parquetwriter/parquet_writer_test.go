@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"model"
+
 	"github.com/miekg/dns"
 )
 
@@ -27,10 +29,10 @@ func TestParquetWriter(t *testing.T) {
         query.SetQuestion(dns.Fqdn(fqdn), dns.TypeNS)
         response.SetQuestion(dns.Fqdn(fqdn), dns.TypeNS)
 
-        Add_DNS_query_response(DNS_query_response{query: *query, response: *response})
+        Add_Data(model.Data{Req: *query, Res: *response})
 
         if i % 10 == 0 {
-        	time.Sleep(2 * time.Second)
+        	time.Sleep(1 * time.Second)
         }
 
     }
